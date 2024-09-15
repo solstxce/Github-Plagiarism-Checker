@@ -835,6 +835,61 @@ def render_file_uploader():
     return st.file_uploader("Upload CSV file", type="csv")
 
 
+# def render_results(results):
+#     if not results:
+#         st.write("No results to display.")
+#         return
+
+#     st.write("Overall Results:")
+    
+#     # Create a list of dictionaries with only the essential information
+#     simplified_results = []
+#     for result in results:
+#         simplified_result = {
+#             'Roll No': result.get('roll_no', 'Unknown'),
+#             'Score': result.get('score', 'N/A'),
+#             'Complexity Score': result.get('complexity_score', 'N/A'),
+#             'Originality Score': result.get('originality_score', 'N/A')
+#         }
+#         simplified_results.append(simplified_result)
+
+#     # Display the simplified results as a dataframe
+#     df = pd.DataFrame(simplified_results)
+#     st.dataframe(df)
+
+#     # Create a download link for the CSV
+#     csv = df.to_csv(index=False)
+#     b64 = base64.b64encode(csv.encode()).decode()
+#     href = f'<a href="data:file/csv;base64,{b64}" download="verification_results.csv">Download CSV File</a>'
+#     st.markdown(href, unsafe_allow_html=True)
+
+#     st.subheader("Detailed Analysis")
+#     for result in results:
+#         with st.expander(f"Detailed Report for Roll No: {result.get('roll_no', 'Unknown')}"):
+#             if 'error' in result:
+#                 st.error(f"Error: {result['error']}")
+#                 continue
+            
+#             st.write(f"Final Score: {result.get('score', 'N/A')}")
+#             st.write(f"Complexity Score: {result.get('complexity_score', 'N/A')}")
+#             st.write(f"Originality Score: {result.get('originality_score', 'N/A')}")
+            
+#             if 'plagiarism_report' in result:
+#                 st.subheader("Plagiarism Report")
+#                 overall_similarity = result['plagiarism_report'].get('overall_similarity', 'N/A')
+#                 st.write(f"Overall Similarity: {overall_similarity}")
+                
+#                 file_similarities = result['plagiarism_report'].get('file_similarities', {})
+#                 if file_similarities:
+#                     st.write("File Similarities:")
+#                     for file, similarity in file_similarities.items():
+#                         st.write(f"- {file}: {similarity}% similar")
+
+#             if 'report' in result:
+#                 st.text_area("Full Report", result['report'], height=200)
+
+#     st.success("Analysis complete. Expand the detailed reports for more information.")
+
 def render_results(results):
     if not results:
         st.write("No results to display.")
@@ -847,10 +902,24 @@ def render_results(results):
     for result in results:
         simplified_result = {
             'Roll No': result.get('roll_no', 'Unknown'),
+            'Email': result.get('email', 'Unknown'),
             'Score': result.get('score', 'N/A'),
             'Complexity Score': result.get('complexity_score', 'N/A'),
-            'Originality Score': result.get('originality_score', 'N/A')
+            'Originality Score': result.get('originality_score', 'N/A'),
+            'Plagiarized From': 'N/A'
         }
+        
+        # Check for high plagiarism content
+        plagiarism_report = result.get('plagiarism_report')
+        if plagiarism_report is not None:
+            overall_similarity = plagiarism_report.get('overall_similarity', 0)
+            if overall_similarity > 30:
+                plagiarism_sources = plagiarism_report.get('plagiarism_sources', {})
+                if plagiarism_sources:
+                    # Get the source with the highest similarity
+                    max_similarity_source = max(plagiarism_sources.values(), key=lambda x: x['similarity'])
+                    simplified_result['Plagiarized From'] = f"Roll No. {max_similarity_source['roll_no']}"
+        
         simplified_results.append(simplified_result)
 
     # Display the simplified results as a dataframe
@@ -870,25 +939,34 @@ def render_results(results):
                 st.error(f"Error: {result['error']}")
                 continue
             
+            st.write(f"Email: {result.get('email', 'Unknown')}")
             st.write(f"Final Score: {result.get('score', 'N/A')}")
             st.write(f"Complexity Score: {result.get('complexity_score', 'N/A')}")
             st.write(f"Originality Score: {result.get('originality_score', 'N/A')}")
             
-            if 'plagiarism_report' in result:
+            plagiarism_report = result.get('plagiarism_report')
+            if plagiarism_report is not None:
                 st.subheader("Plagiarism Report")
-                overall_similarity = result['plagiarism_report'].get('overall_similarity', 'N/A')
+                overall_similarity = plagiarism_report.get('overall_similarity', 'N/A')
                 st.write(f"Overall Similarity: {overall_similarity}")
                 
-                file_similarities = result['plagiarism_report'].get('file_similarities', {})
+                file_similarities = plagiarism_report.get('file_similarities', {})
                 if file_similarities:
                     st.write("File Similarities:")
                     for file, similarity in file_similarities.items():
                         st.write(f"- {file}: {similarity}% similar")
+                        if similarity > 30:
+                            source = plagiarism_report.get('plagiarism_sources', {}).get(file, {})
+                            if source:
+                                st.write(f"  Potential source: Roll No. {source.get('roll_no', 'Unknown')} (Similarity: {source.get('similarity', 'N/A')}%)")
+                                st.write(f"  GitHub Link: {source.get('github_link', 'N/A')}")
 
             if 'report' in result:
                 st.text_area("Full Report", result['report'], height=200)
 
     st.success("Analysis complete. Expand the detailed reports for more information.")
+
+
 # def render_results(results):
 #     if not results:
 #         st.write("No results to display.")
